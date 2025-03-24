@@ -4,6 +4,7 @@ import (
 	"log/slog"
 	"os"
 
+	"github.com/LeoUraltsev/HauseService/internal/app"
 	"github.com/LeoUraltsev/HauseService/internal/config"
 )
 
@@ -21,6 +22,10 @@ func main() {
 	log := initLogger(cfg.Env)
 
 	log.Info("startup app", slog.String("env", cfg.Env))
+
+	if err := app.Run(log, cfg); err != nil {
+		log.Error("stopping app", slog.String("err", err.Error()))
+	}
 
 }
 
