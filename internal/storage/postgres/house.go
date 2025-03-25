@@ -11,7 +11,7 @@ import (
 	"github.com/jackc/pgx/pgtype"
 )
 
-type HouseDTO struct {
+type House struct {
 	UID           int64
 	Address       string
 	Year          uint
@@ -23,7 +23,7 @@ type HouseDTO struct {
 func (p *Storage) InsertHouse(ctx context.Context, house models.House) (*models.House, error) {
 	const op = "storage.postgres.InsertHouse"
 
-	var h HouseDTO
+	var h House
 
 	log := p.log.With(slog.String("op", op))
 
@@ -69,7 +69,7 @@ func (p *Storage) SelectHouseByID(ctx context.Context, id int64) (*models.House,
 	log := p.log.With(slog.String("op", op))
 	log.Debug("attempting getting house", slog.Int64("id", id))
 
-	var h HouseDTO
+	var h House
 	psql := sq.StatementBuilder.PlaceholderFormat(sq.Dollar)
 	query, _, err := psql.Select("*").From("house").Where("id=$1").ToSql()
 	if err != nil {
