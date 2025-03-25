@@ -31,5 +31,7 @@ func Run(log *slog.Logger, cfg *config.Config) error {
 
 	log.Info("new house", slog.Any("house", h))
 
+	db.SelectHouseByID(context.Background(), 1)
+
 	return nil
 }
