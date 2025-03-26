@@ -3,6 +3,7 @@ package app
 import (
 	"context"
 	"log/slog"
+	"os"
 	"time"
 
 	"github.com/LeoUraltsev/HauseService/internal/config"
@@ -16,6 +17,7 @@ func Run(log *slog.Logger, cfg *config.Config) error {
 	if err != nil {
 		return err
 	}
+	defer db.Close()
 
 	h, err := db.InsertHouse(context.Background(), models.House{
 		Address:       "asd",
@@ -29,9 +31,21 @@ func Run(log *slog.Logger, cfg *config.Config) error {
 		return err
 	}
 
-	log.Info("new house", slog.Any("house", h))
+	log.Info("new house 1", slog.Any("house", h))
 
-	db.SelectHouseByID(context.Background(), 1)
+	_, err = db.InsertFlat(context.Background(), models.Flat{
+		HouseID: 2,
+		Price:   12,
+		Rooms:   2,
+		Status:  models.Created,
+	})
+
+	if err != nil {
+		log.Error("error", slog.Any("err", err))
+		os.Exit(1)
+	}
+
+	db.UpdateStatusFlat(context.Background(), 2, models.OnModeration)
 
 	return nil
 }

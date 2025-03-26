@@ -29,26 +29,26 @@ func (s *Storage) InsertFlat(ctx context.Context, flat models.Flat) (*models.Fla
 	fpg := ConvertToPGFlat(&flat)
 
 	query, args, err := psql.Insert("flat").Columns("house_id", "price", "rooms", "status").
-		Values(fpg.HouseID, fpg.Price, fpg.Rooms, fpg.Status).Prefix("RETURNING *").ToSql()
+		Values(fpg.HouseID, fpg.Price, fpg.Rooms, fpg.Status).Suffix("RETURNING *").ToSql()
 	if err != nil {
 		return nil, err
 	}
 	log.Debug("generate sql", slog.String("query", query))
 
-	if err := s.Pool.QueryRow(ctx, query, args...).Scan(&fpg); err != nil {
+	if err := s.Pool.QueryRow(ctx, query, args...).Scan(&fpg.ID, &fpg.HouseID, &fpg.Rooms, &flat.Price, &fpg.Status); err != nil {
 		return nil, err
 	}
 	t := time.Now().UTC()
-	query, _, err = psql.Update("hause").Where("id = $1").Set("last_flat_add_at", t).ToSql()
+	query, args1, err := psql.Update("house").Where("id = ?", fpg.ID).Set("last_flat_add_at", t).ToSql()
 	if err != nil {
 		return nil, err
 	}
 	log.Debug("generate sql", slog.String("query", query))
 
-	_, err = s.Pool.Exec(ctx, query, fpg.HouseID)
+	_, err = s.Pool.Exec(ctx, query, args1...)
 	if err != nil {
 		log.Error(
-			"failed update last_flat_add_at in table flat",
+			"failed update last_flat_add_at in table hause",
 			slog.String("err", err.Error()),
 			slog.Int64("flat_id", fpg.ID),
 			slog.Int64("house_id", fpg.HouseID),
@@ -56,6 +56,39 @@ func (s *Storage) InsertFlat(ctx context.Context, flat models.Flat) (*models.Fla
 	}
 
 	return ConvertFromPGFlat(fpg), nil
+}
+
+func (s *Storage) UpdateStatusFlat(ctx context.Context, flatID int64, newStatus models.Status) (*models.Flat, error) {
+	const op = "storage.postgres.UpdateStatusFlat"
+	var f Flat
+
+	log := s.log.With(
+		slog.String("op", op),
+		slog.Int64("flat_id", flatID),
+	)
+
+	log.Info("attempting update status flat")
+
+	psql := sq.StatementBuilder.PlaceholderFormat(sq.Dollar)
+	query, args, err := psql.
+		Update("flat").
+		Where("id = ?", flatID).
+		Set("status", newStatus.String()).
+		Suffix("RETURNING *").
+		ToSql()
+	if err != nil {
+		return nil, err
+	}
+	log.Debug("generate sql", slog.String("query", query))
+
+	if err := s.Pool.QueryRow(ctx, query, args...).Scan(&f.ID, &f.HouseID, &f.Price, &f.Rooms, &f.Status); err != nil {
+		log.Error("failed change status", slog.String("err", err.Error()))
+
+		return nil, err
+	}
+
+	log.Info("success change status", slog.String("new_status", f.Status))
+	return ConvertFromPGFlat(&f), nil
 }
 
 func ConvertToPGFlat(flat *models.Flat) *Flat {
