@@ -9,6 +9,7 @@ import (
 	"github.com/LeoUraltsev/HauseService/internal/config"
 	"github.com/LeoUraltsev/HauseService/internal/models"
 	"github.com/LeoUraltsev/HauseService/internal/storage/postgres"
+	"github.com/google/uuid"
 )
 
 func Run(log *slog.Logger, cfg *config.Config) error {
@@ -46,6 +47,13 @@ func Run(log *slog.Logger, cfg *config.Config) error {
 	}
 
 	db.UpdateStatusFlat(context.Background(), 2, models.OnModeration)
+
+	db.InsertUser(context.Background(), models.User{
+		ID:           uuid.New(),
+		Email:        "emailtest@email.ru",
+		PasswordHash: "asdasdasdq123",
+		UserType:     models.Moderator,
+	})
 
 	return nil
 }
