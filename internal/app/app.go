@@ -8,6 +8,8 @@ import (
 	"github.com/LeoUraltsev/HauseService/internal/config"
 	"github.com/LeoUraltsev/HauseService/internal/gen"
 	"github.com/LeoUraltsev/HauseService/internal/handlers"
+	"github.com/LeoUraltsev/HauseService/internal/service"
+	"github.com/go-chi/chi/v5/middleware"
 
 	"github.com/LeoUraltsev/HauseService/internal/storage/postgres"
 )
@@ -20,7 +22,16 @@ func Run(log *slog.Logger, cfg *config.Config) error {
 	}
 	defer db.Close()
 
-	r := gen.Handler(handlers.New())
+	authService := service.NewAuthService(db)
+
+	r := gen.HandlerWithOptions(
+		handlers.New(db, db, authService),
+		gen.ChiServerOptions{
+			Middlewares: []gen.MiddlewareFunc{
+				middleware.RequestID,
+			},
+		},
+	)
 
 	http.ListenAndServe("localhost:10000", r)
 	return nil
