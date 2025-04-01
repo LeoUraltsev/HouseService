@@ -25,10 +25,10 @@ func Run(log *slog.Logger, cfg *config.Config) error {
 
 	j := jwt.New(cfg.JWTDuration, cfg.JWTSecret)
 
-	authService := service.NewAuthService(db, j)
+	authService := service.NewAuthService(db, j, log)
 
 	r := gen.HandlerWithOptions(
-		handlers.New(db, db, authService),
+		handlers.New(db, db, authService, log),
 		gen.ChiServerOptions{
 			Middlewares: []gen.MiddlewareFunc{
 				middleware.RequestID,

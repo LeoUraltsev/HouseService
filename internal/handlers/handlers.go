@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"context"
+	"log/slog"
 	"net/http"
 
 	"github.com/LeoUraltsev/HauseService/internal/gen"
@@ -27,6 +28,8 @@ type Handler struct {
 	HouseService HouseService
 	FlatService  FlatService
 	AuthService  AuthService
+
+	log *slog.Logger
 }
 
 type RegResponse struct {
@@ -41,11 +44,13 @@ func New(
 	houseService HouseService,
 	flatService FlatService,
 	authService AuthService,
+	log *slog.Logger,
 ) *Handler {
 	return &Handler{
 		HouseService: houseService,
 		FlatService:  flatService,
 		AuthService:  authService,
+		log:          log,
 	}
 }
 
@@ -95,19 +100,32 @@ func (h *Handler) PostHouseIdSubscribe(w http.ResponseWriter, r *http.Request, i
 
 // PostLogin implements gen.ServerInterface.
 func (h *Handler) PostLogin(w http.ResponseWriter, r *http.Request) {
+	const op = "handlers.PostLogin"
 	var req gen.PostLoginJSONRequestBody
 
+	reqID := middleware.GetReqID(r.Context())
+	log := h.log.With(
+		slog.String("op", op),
+		slog.String("request_id", reqID),
+	)
+
+	log.Info("attempting login")
+
 	if err := render.DecodeJSON(r.Body, &req); err != nil {
+		log.Error("decode json", slog.String("err", err.Error()))
 		render.Status(r, http.StatusBadRequest)
 		return
 	}
+
+	log.Debug("success decode json", slog.String("id", req.Id.String()))
+	//todo: валидация
 
 	token, err := h.AuthService.Login(context.Background(), models.User{
 		ID:           *req.Id,
 		PasswordHash: *req.Password,
 	})
-
 	if err != nil {
+		log.Error("login", slog.String("err", err.Error()))
 		render.Status(r, http.StatusInternalServerError)
 		rID := middleware.GetReqID(r.Context())
 		render.JSON(w, r, &gen.N5xx{
@@ -117,6 +135,8 @@ func (h *Handler) PostLogin(w http.ResponseWriter, r *http.Request) {
 		})
 		return
 	}
+	log.Debug("success get token", slog.String("token", token))
+	log.Info("success login", slog.String("user_id", req.Id.String()))
 
 	render.JSON(w, r, &LoginResponse{
 		Token: token,
