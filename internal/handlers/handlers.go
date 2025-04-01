@@ -20,6 +20,7 @@ type FlatService interface {
 type AuthService interface {
 	Login(ctx context.Context, user models.User) (string, error)
 	Register(ctx context.Context, user models.User) (*uuid.UUID, error)
+	DummyLogin(ctx context.Context, userType models.UserType) (string, error)
 }
 
 type Handler struct {
@@ -30,6 +31,10 @@ type Handler struct {
 
 type RegResponse struct {
 	UserID gen.UserId `json:"user_id"`
+}
+
+type LoginResponse struct {
+	Token gen.Token `json:"token"`
 }
 
 func New(
@@ -46,7 +51,21 @@ func New(
 
 // GetDummyLogin implements gen.ServerInterface.
 func (h *Handler) GetDummyLogin(w http.ResponseWriter, r *http.Request, params gen.GetDummyLoginParams) {
-	panic("unimplemented")
+	token, err := h.AuthService.DummyLogin(context.Background(), models.UserType(params.UserType))
+	reqID := middleware.GetReqID(r.Context())
+	if err != nil {
+		code := http.StatusInternalServerError
+		render.Status(r, code)
+		render.JSON(w, r, gen.N5xx{
+			Code:      &code,
+			Message:   "что-то пошло не так",
+			RequestId: &reqID,
+		})
+		return
+	}
+	render.JSON(w, r, LoginResponse{
+		Token: token,
+	})
 }
 
 // GetHouseId implements gen.ServerInterface.
@@ -99,7 +118,9 @@ func (h *Handler) PostLogin(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	render.JSON(w, r, token)
+	render.JSON(w, r, &LoginResponse{
+		Token: token,
+	})
 }
 
 // PostRegister implements gen.ServerInterface.

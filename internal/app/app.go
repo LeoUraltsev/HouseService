@@ -8,6 +8,7 @@ import (
 	"github.com/LeoUraltsev/HauseService/internal/config"
 	"github.com/LeoUraltsev/HauseService/internal/gen"
 	"github.com/LeoUraltsev/HauseService/internal/handlers"
+	"github.com/LeoUraltsev/HauseService/internal/jwt"
 	"github.com/LeoUraltsev/HauseService/internal/service"
 	"github.com/go-chi/chi/v5/middleware"
 
@@ -22,7 +23,9 @@ func Run(log *slog.Logger, cfg *config.Config) error {
 	}
 	defer db.Close()
 
-	authService := service.NewAuthService(db)
+	j := jwt.New(cfg.JWTDuration, cfg.JWTSecret)
+
+	authService := service.NewAuthService(db, j)
 
 	r := gen.HandlerWithOptions(
 		handlers.New(db, db, authService),
