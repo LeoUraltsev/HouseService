@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/LeoUraltsev/HauseService/internal/models"
+	"github.com/LeoUraltsev/HouseService/internal/models"
 	"github.com/golang-jwt/jwt/v5"
 )
 

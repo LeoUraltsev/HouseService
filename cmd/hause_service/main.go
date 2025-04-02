@@ -4,8 +4,8 @@ import (
 	"log/slog"
 	"os"
 
-	"github.com/LeoUraltsev/HauseService/internal/app"
-	"github.com/LeoUraltsev/HauseService/internal/config"
+	"github.com/LeoUraltsev/HouseService/internal/app"
+	"github.com/LeoUraltsev/HouseService/internal/config"
 )
 
 const (

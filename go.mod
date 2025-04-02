@@ -1,4 +1,4 @@
-module github.com/LeoUraltsev/HauseService
+module github.com/LeoUraltsev/HouseService
 
 go 1.24.0
 

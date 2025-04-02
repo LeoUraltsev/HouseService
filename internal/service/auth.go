@@ -6,8 +6,8 @@ import (
 	"log/slog"
 	"strings"
 
-	"github.com/LeoUraltsev/HauseService/internal/jwt"
-	"github.com/LeoUraltsev/HauseService/internal/models"
+	"github.com/LeoUraltsev/HouseService/internal/jwt"
+	"github.com/LeoUraltsev/HouseService/internal/models"
 	"github.com/google/uuid"
 	"golang.org/x/crypto/bcrypt"
 )

@@ -11,10 +11,10 @@ import "time"
 дата последнего добавления новой квартиры дома
 */
 type House struct {
-	UID           int64
+	UID           int
 	Address       string
 	Year          uint
-	Developer     string
+	Developer     *string
 	CreatedAt     time.Time
 	LastFlatAddAt time.Time
 }

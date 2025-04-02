@@ -6,7 +6,7 @@ import (
 	"log/slog"
 	"time"
 
-	"github.com/LeoUraltsev/HauseService/internal/models"
+	"github.com/LeoUraltsev/HouseService/internal/models"
 	sq "github.com/Masterminds/squirrel"
 	"github.com/jackc/pgx/pgtype"
 )
@@ -57,7 +57,7 @@ func (p *Storage) InsertHouse(ctx context.Context, house models.House) (*models.
 		UID:           h.UID,
 		Address:       h.Address,
 		Year:          h.Year,
-		Developer:     h.Developer,
+		Developer:     &h.Developer,
 		CreatedAt:     h.CreatedAt.Time,
 		LastFlatAddAt: h.LastFlatAddAt.Time,
 	}, nil
@@ -87,7 +87,7 @@ func (p *Storage) SelectHouseByID(ctx context.Context, id int64) (*models.House,
 		UID:           h.UID,
 		Address:       h.Address,
 		Year:          h.Year,
-		Developer:     h.Developer,
+		Developer:     &h.Developer,
 		CreatedAt:     h.CreatedAt.Time,
 		LastFlatAddAt: h.LastFlatAddAt.Time,
 	}, nil

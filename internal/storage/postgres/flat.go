@@ -5,7 +5,7 @@ import (
 	"log/slog"
 	"time"
 
-	"github.com/LeoUraltsev/HauseService/internal/models"
+	"github.com/LeoUraltsev/HouseService/internal/models"
 	sq "github.com/Masterminds/squirrel"
 )
 

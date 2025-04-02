@@ -4,7 +4,7 @@ import (
 	"context"
 	"log/slog"
 
-	"github.com/LeoUraltsev/HauseService/internal/models"
+	"github.com/LeoUraltsev/HouseService/internal/models"
 	sq "github.com/Masterminds/squirrel"
 	"github.com/google/uuid"
 )

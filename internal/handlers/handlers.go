@@ -5,14 +5,15 @@ import (
 	"log/slog"
 	"net/http"
 
-	"github.com/LeoUraltsev/HauseService/internal/gen"
-	"github.com/LeoUraltsev/HauseService/internal/models"
+	"github.com/LeoUraltsev/HouseService/internal/gen"
+	"github.com/LeoUraltsev/HouseService/internal/models"
 	"github.com/go-chi/chi/v5/middleware"
 	"github.com/go-chi/render"
 	"github.com/google/uuid"
 )
 
 type HouseService interface {
+	HauseCreate(ctx context.Context, house models.House) (*models.House, error)
 }
 
 type FlatService interface {
@@ -56,18 +57,30 @@ func New(
 
 // GetDummyLogin implements gen.ServerInterface.
 func (h *Handler) GetDummyLogin(w http.ResponseWriter, r *http.Request, params gen.GetDummyLoginParams) {
-	token, err := h.AuthService.DummyLogin(context.Background(), models.UserType(params.UserType))
-	reqID := middleware.GetReqID(r.Context())
-	if err != nil {
-		code := http.StatusInternalServerError
-		render.Status(r, code)
-		render.JSON(w, r, gen.N5xx{
-			Code:      &code,
-			Message:   "что-то пошло не так",
-			RequestId: &reqID,
-		})
+	const op = "handlers.GetDummyLogin"
+
+	log := h.log.With(
+		slog.String("op", op),
+		slog.String("type", string(params.UserType)),
+	)
+
+	log.Info("attempting getting token")
+
+	userType := params.UserType
+	if !(userType == gen.Client || userType == gen.Moderator) {
+		log.Warn("params invalide")
+		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
+
+	token, err := h.AuthService.DummyLogin(context.Background(), models.UserType(params.UserType))
+	if err != nil {
+		log.Error("internal error", slog.String("err", err.Error()))
+		respError(w, r, "что-то пошло не так", http.StatusInternalServerError)
+		return
+	}
+
+	log.Info("success geting token")
 	render.JSON(w, r, LoginResponse{
 		Token: token,
 	})
@@ -90,7 +103,42 @@ func (h *Handler) PostFlatUpdate(w http.ResponseWriter, r *http.Request) {
 
 // PostHouseCreate implements gen.ServerInterface.
 func (h *Handler) PostHouseCreate(w http.ResponseWriter, r *http.Request) {
-	panic("unimplemented")
+	const op = "handlers.PostHouseCreate"
+
+	log := h.log.With(slog.String("op", op))
+
+	var req gen.PostHouseCreateJSONRequestBody
+
+	log.Info("attempting create house")
+
+	if err := render.DecodeJSON(r.Body, &req); err != nil {
+		log.Warn("invilide json")
+		w.WriteHeader(http.StatusBadRequest)
+		return
+	}
+
+	house, err := h.HouseService.HauseCreate(context.Background(), models.House{
+		Address:   req.Address,
+		Year:      uint(req.Year),
+		Developer: req.Developer,
+	})
+
+	if err != nil {
+		log.Error("internal error", slog.String("err", err.Error()))
+		respError(w, r, "что-то пошло не так", http.StatusInternalServerError)
+		return
+	}
+
+	log.Info("create hause", slog.Int("hause_id", house.UID))
+
+	render.JSON(w, r, gen.House{
+		Address:   house.Address,
+		CreatedAt: &house.CreatedAt,
+		Developer: house.Developer,
+		Id:        house.UID,
+		UpdateAt:  &house.LastFlatAddAt,
+		Year:      gen.Year(house.Year),
+	})
 }
 
 // PostHouseIdSubscribe implements gen.ServerInterface.

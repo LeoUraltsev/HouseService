@@ -5,14 +5,14 @@ import (
 	"log/slog"
 	"net/http"
 
-	"github.com/LeoUraltsev/HauseService/internal/config"
-	"github.com/LeoUraltsev/HauseService/internal/gen"
-	"github.com/LeoUraltsev/HauseService/internal/handlers"
-	"github.com/LeoUraltsev/HauseService/internal/jwt"
-	"github.com/LeoUraltsev/HauseService/internal/service"
+	"github.com/LeoUraltsev/HouseService/internal/config"
+	"github.com/LeoUraltsev/HouseService/internal/gen"
+	"github.com/LeoUraltsev/HouseService/internal/handlers"
+	"github.com/LeoUraltsev/HouseService/internal/jwt"
+	"github.com/LeoUraltsev/HouseService/internal/service"
 	"github.com/go-chi/chi/v5/middleware"
 
-	"github.com/LeoUraltsev/HauseService/internal/storage/postgres"
+	"github.com/LeoUraltsev/HouseService/internal/storage/postgres"
 )
 
 func Run(log *slog.Logger, cfg *config.Config) error {
@@ -28,7 +28,7 @@ func Run(log *slog.Logger, cfg *config.Config) error {
 	authService := service.NewAuthService(db, j, log)
 
 	r := gen.HandlerWithOptions(
-		handlers.New(db, db, authService, log),
+		handlers.New(nil, db, authService, log),
 		gen.ChiServerOptions{
 			Middlewares: []gen.MiddlewareFunc{
 				middleware.RequestID,
