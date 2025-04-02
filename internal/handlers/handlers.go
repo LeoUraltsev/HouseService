@@ -113,12 +113,17 @@ func (h *Handler) PostLogin(w http.ResponseWriter, r *http.Request) {
 
 	if err := render.DecodeJSON(r.Body, &req); err != nil {
 		log.Error("decode json", slog.String("err", err.Error()))
-		render.Status(r, http.StatusBadRequest)
+		w.WriteHeader(http.StatusBadRequest)
+		return
+	}
+
+	if req.Id == nil || req.Password == nil {
+		log.Warn("requered filds is empty")
+		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
 
 	log.Debug("success decode json", slog.String("id", req.Id.String()))
-	//todo: валидация
 
 	token, err := h.AuthService.Login(context.Background(), models.User{
 		ID:           *req.Id,
@@ -126,13 +131,7 @@ func (h *Handler) PostLogin(w http.ResponseWriter, r *http.Request) {
 	})
 	if err != nil {
 		log.Error("login", slog.String("err", err.Error()))
-		render.Status(r, http.StatusInternalServerError)
-		rID := middleware.GetReqID(r.Context())
-		render.JSON(w, r, &gen.N5xx{
-			Code:      new(int),
-			Message:   "",
-			RequestId: &rID,
-		})
+		respError(w, r, "что-то пошло не так", http.StatusInternalServerError)
 		return
 	}
 	log.Debug("success get token", slog.String("token", token))
@@ -145,10 +144,17 @@ func (h *Handler) PostLogin(w http.ResponseWriter, r *http.Request) {
 
 // PostRegister implements gen.ServerInterface.
 func (h *Handler) PostRegister(w http.ResponseWriter, r *http.Request) {
+	const op = "handlers.PostRegister"
+
+	log := h.log.With(slog.String("op", op))
+
+	log.Info("attempting registration")
+
 	var req gen.PostRegisterJSONRequestBody
 
 	if err := render.DecodeJSON(r.Body, &req); err != nil {
-		render.Status(r, http.StatusBadRequest)
+		log.Warn("incorect json", slog.String("err", err.Error()))
+		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
 
@@ -159,16 +165,21 @@ func (h *Handler) PostRegister(w http.ResponseWriter, r *http.Request) {
 	})
 
 	if err != nil {
-		requestID := middleware.GetReqID(r.Context())
-		render.Status(r, http.StatusInternalServerError)
-		render.JSON(w, r, gen.N5xx{
-			Code:      new(int),
-			Message:   "что-то пошло не так",
-			RequestId: &requestID,
-		})
+		log.Error("internal error", slog.String("err", err.Error()))
+		respError(w, r, "что-то пошло не так", http.StatusInternalServerError)
 		return
 	}
 
+	log.Info("success registation", slog.String("user_id", id.String()))
 	render.JSON(w, r, &RegResponse{UserID: *id})
+}
 
+func respError(w http.ResponseWriter, r *http.Request, msg string, statusCode int) {
+	requestID := middleware.GetReqID(r.Context())
+	render.Status(r, statusCode)
+	render.JSON(w, r, gen.N5xx{
+		Code:      &statusCode,
+		Message:   msg,
+		RequestId: &requestID,
+	})
 }
