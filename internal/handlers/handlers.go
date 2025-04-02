@@ -13,7 +13,8 @@ import (
 )
 
 type HouseService interface {
-	HauseCreate(ctx context.Context, house models.House) (*models.House, error)
+	HouseCreate(ctx context.Context, house models.House) (*models.House, error)
+	HouseByID(ctx context.Context, id int) (*models.House, error)
 }
 
 type FlatService interface {
@@ -59,8 +60,10 @@ func New(
 func (h *Handler) GetDummyLogin(w http.ResponseWriter, r *http.Request, params gen.GetDummyLoginParams) {
 	const op = "handlers.GetDummyLogin"
 
+	reqID := middleware.GetReqID(r.Context())
 	log := h.log.With(
 		slog.String("op", op),
+		slog.String("request_id", reqID),
 		slog.String("type", string(params.UserType)),
 	)
 
@@ -88,7 +91,33 @@ func (h *Handler) GetDummyLogin(w http.ResponseWriter, r *http.Request, params g
 
 // GetHouseId implements gen.ServerInterface.
 func (h *Handler) GetHouseId(w http.ResponseWriter, r *http.Request, id gen.HouseId) {
-	panic("unimplemented")
+	const op = "handlers.GetHouseId"
+	reqID := middleware.GetReqID(r.Context())
+	log := h.log.With(
+		slog.String("op", op),
+		slog.String("request_id", reqID),
+		slog.Int("id", id),
+	)
+
+	log.Info("attempting getting house")
+
+	house, err := h.HouseService.HouseByID(context.Background(), id)
+	if err != nil {
+		log.Error("internal error", slog.String("err", err.Error()))
+		respError(w, r, "что-то пошло не так", http.StatusInternalServerError)
+		return
+	}
+
+	log.Info("success getting house")
+
+	render.JSON(w, r, gen.House{
+		Address:   house.Address,
+		CreatedAt: &house.CreatedAt,
+		Developer: house.Developer,
+		Id:        house.UID,
+		UpdateAt:  &house.LastFlatAddAt,
+		Year:      gen.Year(house.Year),
+	})
 }
 
 // PostFlatCreate implements gen.ServerInterface.
@@ -105,7 +134,11 @@ func (h *Handler) PostFlatUpdate(w http.ResponseWriter, r *http.Request) {
 func (h *Handler) PostHouseCreate(w http.ResponseWriter, r *http.Request) {
 	const op = "handlers.PostHouseCreate"
 
-	log := h.log.With(slog.String("op", op))
+	reqID := middleware.GetReqID(r.Context())
+	log := h.log.With(
+		slog.String("op", op),
+		slog.String("request_id", reqID),
+	)
 
 	var req gen.PostHouseCreateJSONRequestBody
 
@@ -117,7 +150,7 @@ func (h *Handler) PostHouseCreate(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	house, err := h.HouseService.HauseCreate(context.Background(), models.House{
+	house, err := h.HouseService.HouseCreate(context.Background(), models.House{
 		Address:   req.Address,
 		Year:      uint(req.Year),
 		Developer: req.Developer,
@@ -194,7 +227,11 @@ func (h *Handler) PostLogin(w http.ResponseWriter, r *http.Request) {
 func (h *Handler) PostRegister(w http.ResponseWriter, r *http.Request) {
 	const op = "handlers.PostRegister"
 
-	log := h.log.With(slog.String("op", op))
+	reqID := middleware.GetReqID(r.Context())
+	log := h.log.With(
+		slog.String("op", op),
+		slog.String("request_id", reqID),
+	)
 
 	log.Info("attempting registration")
 

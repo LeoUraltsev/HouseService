@@ -12,7 +12,7 @@ import (
 )
 
 type House struct {
-	UID           int64
+	UID           int
 	Address       string
 	Year          uint
 	Developer     string
@@ -52,7 +52,7 @@ func (p *Storage) InsertHouse(ctx context.Context, house models.House) (*models.
 		return nil, fmt.Errorf("failed adding house")
 	}
 
-	log.Info("adding new house in db", slog.Int64("id", h.UID))
+	log.Info("adding new house in db", slog.Int("id", h.UID))
 	return &models.House{
 		UID:           h.UID,
 		Address:       h.Address,
