@@ -34,7 +34,7 @@ func Run(log *slog.Logger, cfg *config.Config) error {
 	}
 
 	r := gen.HandlerWithOptions(
-		handlers.New(houseService, db, authService, log),
+		handlers.New(houseService, nil, authService, log),
 		gen.ChiServerOptions{
 			Middlewares: []gen.MiddlewareFunc{
 				middleware.RequestID,

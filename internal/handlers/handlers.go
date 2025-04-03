@@ -19,6 +19,8 @@ type HouseService interface {
 }
 
 type FlatService interface {
+	FlatCreate(ctx context.Context, flat models.Flat) (*models.Flat, error)
+	FlatUpdate(ctx context.Context, flatId int, newStatus models.Status) (*models.Flat, error)
 }
 
 type AuthService interface {
@@ -123,12 +125,96 @@ func (h *Handler) GetHouseId(w http.ResponseWriter, r *http.Request, id gen.Hous
 
 // PostFlatCreate implements gen.ServerInterface.
 func (h *Handler) PostFlatCreate(w http.ResponseWriter, r *http.Request) {
-	panic("unimplemented")
+	const op = "handlers.PostFlatCreate"
+	reqID := middleware.GetReqID(r.Context())
+	log := h.log.With(
+		slog.String("op", op),
+		slog.String("request_id", reqID),
+	)
+
+	log.Info("attempting create flat")
+
+	var f gen.PostFlatCreateJSONRequestBody
+	if err := render.DecodeJSON(r.Body, &f); err != nil {
+		log.Warn("incorrect json body", slog.String("err", err.Error()))
+		w.WriteHeader(http.StatusBadRequest)
+		return
+	}
+
+	flat, err := h.FlatService.FlatCreate(context.Background(), models.Flat{
+		HouseID: int64(f.HouseId),
+		Price:   uint(f.Price),
+		Rooms:   uint(*f.Rooms),
+		Status:  models.Created,
+	})
+	if err != nil {
+		render.Status(r, http.StatusInternalServerError)
+		respError(w, r, "что-то пошло не так", http.StatusInternalServerError)
+		return
+	}
+
+	log.Info("success adding flat")
+
+	render.JSON(w, r, gen.Flat{
+		HouseId: gen.HouseId(flat.HouseID),
+		Id:      gen.FlatId(flat.ID),
+		Price:   gen.Price(flat.Price),
+		Rooms:   gen.Rooms(flat.Rooms),
+		Status:  gen.Status(flat.Status.String()),
+	})
+
 }
 
 // PostFlatUpdate implements gen.ServerInterface.
 func (h *Handler) PostFlatUpdate(w http.ResponseWriter, r *http.Request) {
-	panic("unimplemented")
+	const op = "handlers.PostFlatUpdate"
+
+	reqID := middleware.GetReqID(r.Context())
+
+	log := h.log.With(
+		slog.String("op", op),
+		slog.String("request_id", reqID),
+	)
+
+	log.Info("attempting update status flat")
+
+	userType, ok := r.Context().Value(mv.UserTypeContextKey).(models.UserType)
+	if !ok {
+		w.WriteHeader(http.StatusUnauthorized)
+		return
+	}
+
+	if userType != models.Moderator {
+		w.WriteHeader(http.StatusUnauthorized)
+		return
+	}
+
+	var f gen.PostFlatUpdateJSONRequestBody
+	if err := render.DecodeJSON(r.Body, &f); err != nil {
+		log.Warn("incorrect json body", slog.String("err", err.Error()))
+		w.WriteHeader(http.StatusBadRequest)
+		return
+	}
+
+	var s models.Status
+
+	flat, err := h.FlatService.FlatUpdate(context.Background(), f.Id, s.Status(string(*f.Status)))
+	if err != nil {
+		render.Status(r, http.StatusInternalServerError)
+		respError(w, r, "что-то пошло не так", http.StatusInternalServerError)
+		return
+	}
+
+	log.Info("success update status flat")
+
+	render.JSON(w, r, gen.Flat{
+		HouseId: gen.HouseId(flat.HouseID),
+		Id:      gen.FlatId(flat.ID),
+		Price:   gen.Price(flat.Price),
+		Rooms:   gen.Rooms(flat.Rooms),
+		Status:  gen.Status(flat.Status.String()),
+	})
+
 }
 
 // PostHouseCreate implements gen.ServerInterface.
