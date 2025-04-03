@@ -35,5 +35,5 @@ func (h *HouseService) HouseByID(ctx context.Context, id int) (*models.House, er
 
 // HouseCreate implements handlers.HouseService.
 func (h *HouseService) HouseCreate(ctx context.Context, house models.House) (*models.House, error) {
-	panic("unimplemented")
+	return h.HouseRepo.InsertHouse(ctx, house)
 }

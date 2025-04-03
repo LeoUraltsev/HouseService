@@ -10,8 +10,8 @@ const (
 )
 
 type Flat struct {
-	ID      int64
-	HouseID int64
+	ID      int
+	HouseID int
 	Price   uint
 	Rooms   uint
 	Status  Status

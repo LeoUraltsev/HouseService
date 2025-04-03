@@ -10,8 +10,8 @@ import (
 )
 
 type Flat struct {
-	ID      int64
-	HouseID int64
+	ID      int
+	HouseID int
 	Price   uint
 	Rooms   uint
 	Status  string
@@ -50,21 +50,21 @@ func (s *Storage) InsertFlat(ctx context.Context, flat models.Flat) (*models.Fla
 		log.Error(
 			"failed update last_flat_add_at in table hause",
 			slog.String("err", err.Error()),
-			slog.Int64("flat_id", fpg.ID),
-			slog.Int64("house_id", fpg.HouseID),
+			slog.Int("flat_id", fpg.ID),
+			slog.Int("house_id", fpg.HouseID),
 		)
 	}
 
 	return ConvertFromPGFlat(fpg), nil
 }
 
-func (s *Storage) UpdateStatusFlat(ctx context.Context, flatID int64, newStatus models.Status) (*models.Flat, error) {
+func (s *Storage) UpdateStatusFlat(ctx context.Context, flatID int, newStatus models.Status) (*models.Flat, error) {
 	const op = "storage.postgres.UpdateStatusFlat"
 	var f Flat
 
 	log := s.log.With(
 		slog.String("op", op),
-		slog.Int64("flat_id", flatID),
+		slog.Int("flat_id", flatID),
 	)
 
 	log.Info("attempting update status flat")

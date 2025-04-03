@@ -142,7 +142,7 @@ func (h *Handler) PostFlatCreate(w http.ResponseWriter, r *http.Request) {
 	}
 
 	flat, err := h.FlatService.FlatCreate(context.Background(), models.Flat{
-		HouseID: int64(f.HouseId),
+		HouseID: f.HouseId,
 		Price:   uint(f.Price),
 		Rooms:   uint(*f.Rooms),
 		Status:  models.Created,
@@ -227,6 +227,8 @@ func (h *Handler) PostHouseCreate(w http.ResponseWriter, r *http.Request) {
 		slog.String("request_id", reqID),
 	)
 
+	log.Info("attempting create house")
+
 	var req gen.PostHouseCreateJSONRequestBody
 	userType := r.Context().Value(mv.UserTypeContextKey).(models.UserType)
 	if userType != models.Moderator {
@@ -234,10 +236,9 @@ func (h *Handler) PostHouseCreate(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusUnauthorized)
 		return
 	}
-	log.Info("attempting create house")
 
 	if err := render.DecodeJSON(r.Body, &req); err != nil {
-		log.Warn("invilide json")
+		log.Warn("invilide json", slog.String("err", err.Error()))
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}

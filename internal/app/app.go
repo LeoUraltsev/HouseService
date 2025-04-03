@@ -28,13 +28,14 @@ func Run(log *slog.Logger, cfg *config.Config) error {
 
 	authService := service.NewAuthService(db, j, log)
 	houseService := service.NewHouseService(db, j, log)
+	flatService := service.NewFlatService(db, log)
 
 	authMV := mv.Middleware{
 		JWT: j,
 	}
 
 	r := gen.HandlerWithOptions(
-		handlers.New(houseService, nil, authService, log),
+		handlers.New(houseService, flatService, authService, log),
 		gen.ChiServerOptions{
 			Middlewares: []gen.MiddlewareFunc{
 				middleware.RequestID,
@@ -43,6 +44,6 @@ func Run(log *slog.Logger, cfg *config.Config) error {
 		},
 	)
 
-	http.ListenAndServe("localhost:10000", r)
+	http.ListenAndServe(cfg.HttpAddress, r)
 	return nil
 }
