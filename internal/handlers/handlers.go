@@ -6,6 +6,7 @@ import (
 	"net/http"
 
 	"github.com/LeoUraltsev/HouseService/internal/gen"
+	mv "github.com/LeoUraltsev/HouseService/internal/middleware"
 	"github.com/LeoUraltsev/HouseService/internal/models"
 	"github.com/go-chi/chi/v5/middleware"
 	"github.com/go-chi/render"
@@ -141,7 +142,12 @@ func (h *Handler) PostHouseCreate(w http.ResponseWriter, r *http.Request) {
 	)
 
 	var req gen.PostHouseCreateJSONRequestBody
-
+	userType := r.Context().Value(mv.UserTypeContextKey).(models.UserType)
+	if userType != models.Moderator {
+		log.Warn("unautorized", slog.String("user_type", string(userType)))
+		w.WriteHeader(http.StatusUnauthorized)
+		return
+	}
 	log.Info("attempting create house")
 
 	if err := render.DecodeJSON(r.Body, &req); err != nil {

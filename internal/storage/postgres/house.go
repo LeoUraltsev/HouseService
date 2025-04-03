@@ -63,11 +63,11 @@ func (p *Storage) InsertHouse(ctx context.Context, house models.House) (*models.
 	}, nil
 }
 
-func (p *Storage) SelectHouseByID(ctx context.Context, id int64) (*models.House, error) {
+func (p *Storage) SelectHouseByID(ctx context.Context, id int) (*models.House, error) {
 	const op = "storage.postgres.SelectHouseByID"
 
 	log := p.log.With(slog.String("op", op))
-	log.Debug("attempting getting house", slog.Int64("id", id))
+	log.Debug("attempting getting house", slog.Int("id", id))
 
 	var h House
 	psql := sq.StatementBuilder.PlaceholderFormat(sq.Dollar)
@@ -77,11 +77,11 @@ func (p *Storage) SelectHouseByID(ctx context.Context, id int64) (*models.House,
 		return nil, fmt.Errorf("failed getting house: %v", err)
 	}
 	if err := p.Pool.QueryRow(ctx, query, id).Scan(&h.UID, &h.Address, &h.Year, &h.Developer, &h.CreatedAt, &h.LastFlatAddAt); err != nil {
-		log.Error("failed getting house by id", slog.Int64("id", id), slog.String("err", err.Error()))
+		log.Error("failed getting house by id", slog.Int("id", id), slog.String("err", err.Error()))
 		return nil, fmt.Errorf("failed getting house: %v", err)
 	}
 
-	log.Info("success getting house", slog.Int64("id", id))
+	log.Info("success getting house", slog.Int("id", id))
 
 	return &models.House{
 		UID:           h.UID,

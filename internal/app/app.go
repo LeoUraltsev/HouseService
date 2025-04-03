@@ -9,6 +9,7 @@ import (
 	"github.com/LeoUraltsev/HouseService/internal/gen"
 	"github.com/LeoUraltsev/HouseService/internal/handlers"
 	"github.com/LeoUraltsev/HouseService/internal/jwt"
+	mv "github.com/LeoUraltsev/HouseService/internal/middleware"
 	"github.com/LeoUraltsev/HouseService/internal/service"
 	"github.com/go-chi/chi/v5/middleware"
 
@@ -26,12 +27,18 @@ func Run(log *slog.Logger, cfg *config.Config) error {
 	j := jwt.New(cfg.JWTDuration, cfg.JWTSecret)
 
 	authService := service.NewAuthService(db, j, log)
+	houseService := service.NewHouseService(db, j, log)
+
+	authMV := mv.Middleware{
+		JWT: j,
+	}
 
 	r := gen.HandlerWithOptions(
-		handlers.New(nil, db, authService, log),
+		handlers.New(houseService, db, authService, log),
 		gen.ChiServerOptions{
 			Middlewares: []gen.MiddlewareFunc{
 				middleware.RequestID,
+				authMV.AuthMW,
 			},
 		},
 	)
