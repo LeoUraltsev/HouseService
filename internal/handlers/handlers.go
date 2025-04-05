@@ -220,8 +220,10 @@ func (h *Handler) PostFlatUpdate(w http.ResponseWriter, r *http.Request) {
 // PostHouseCreate implements gen.ServerInterface.
 func (h *Handler) PostHouseCreate(w http.ResponseWriter, r *http.Request) {
 	const op = "handlers.PostHouseCreate"
+	var req gen.PostHouseCreateJSONRequestBody
 
 	reqID := middleware.GetReqID(r.Context())
+
 	log := h.log.With(
 		slog.String("op", op),
 		slog.String("request_id", reqID),
@@ -229,7 +231,6 @@ func (h *Handler) PostHouseCreate(w http.ResponseWriter, r *http.Request) {
 
 	log.Info("attempting create house")
 
-	var req gen.PostHouseCreateJSONRequestBody
 	userType := r.Context().Value(mv.UserTypeContextKey).(models.UserType)
 	if userType != models.Moderator {
 		log.Warn("unautorized", slog.String("user_type", string(userType)))
@@ -239,6 +240,30 @@ func (h *Handler) PostHouseCreate(w http.ResponseWriter, r *http.Request) {
 
 	if err := render.DecodeJSON(r.Body, &req); err != nil {
 		log.Warn("invilide json", slog.String("err", err.Error()))
+		w.WriteHeader(http.StatusBadRequest)
+		return
+	}
+
+	//базовая валидация
+	address := string(req.Address)
+	year := int(req.Year)
+
+	if address == "" {
+		err := gen.RequiredParamError{
+			ParamName: "address",
+		}
+
+		log.Warn("params empty", slog.String("err", err.Error()))
+		w.WriteHeader(http.StatusBadRequest)
+		return
+	}
+
+	if year == 0 {
+		err := gen.RequiredParamError{
+			ParamName: "year",
+		}
+
+		log.Warn("params empty", slog.String("err", err.Error()))
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
