@@ -29,7 +29,7 @@ func (s *Storage) InsertFlat(ctx context.Context, flat models.Flat) (*models.Fla
 	fpg := ConvertToPGFlat(&flat)
 
 	query, args, err := psql.Insert("flat").Columns("house_id", "price", "rooms", "status").
-		Values(fpg.HouseID, fpg.Price, fpg.Rooms, fpg.Status).Suffix("RETURNING *").ToSql()
+		Values(fpg.HouseID, fpg.Price, fpg.Rooms, fpg.Status).Suffix("RETURNING id, house_id, price, rooms, status").ToSql()
 	if err != nil {
 		return nil, err
 	}
@@ -55,6 +55,8 @@ func (s *Storage) InsertFlat(ctx context.Context, flat models.Flat) (*models.Fla
 		)
 	}
 
+	log.Info("success adding flat")
+
 	return ConvertFromPGFlat(fpg), nil
 }
 
@@ -73,8 +75,8 @@ func (s *Storage) UpdateStatusFlat(ctx context.Context, flatID int, newStatus mo
 	query, args, err := psql.
 		Update("flat").
 		Where("id = ?", flatID).
-		Set("status", newStatus.String()).
-		Suffix("RETURNING *").
+		Set("status", newStatus).
+		Suffix("RETURNING id, house_id, price, rooms, status").
 		ToSql()
 	if err != nil {
 		return nil, err
@@ -97,18 +99,17 @@ func ConvertToPGFlat(flat *models.Flat) *Flat {
 		HouseID: flat.HouseID,
 		Price:   flat.Price,
 		Rooms:   flat.Rooms,
-		Status:  flat.Status.String(),
+		Status:  string(flat.Status),
 	}
 }
 
 func ConvertFromPGFlat(flat *Flat) *models.Flat {
-	var status models.Status
 
 	return &models.Flat{
 		ID:      flat.ID,
 		HouseID: flat.HouseID,
 		Price:   flat.Price,
 		Rooms:   flat.Rooms,
-		Status:  status.Status(flat.Status),
+		Status:  models.Status(flat.Status),
 	}
 }

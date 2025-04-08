@@ -2,7 +2,10 @@
 
 ## Запуск приложения:
 
+Создать файл `.env` и заполнить его по анологии с `.env.example`
+
 ```bash
+docker build -t house-service:local .
 docker compose up -d
 ```
 

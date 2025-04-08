@@ -144,6 +144,8 @@ func (h *Handler) PostFlatCreate(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	log.Debug("success decode json", slog.Any("req", f))
+
 	flat, err := h.FlatService.FlatCreate(context.Background(), models.Flat{
 		HouseID: f.HouseId,
 		Price:   uint(f.Price),
@@ -151,6 +153,8 @@ func (h *Handler) PostFlatCreate(w http.ResponseWriter, r *http.Request) {
 		Status:  models.Created,
 	})
 	if err != nil {
+		log.Error("create flat", slog.String("err", err.Error()))
+
 		render.Status(r, http.StatusInternalServerError)
 		respError(w, r, "что-то пошло не так", http.StatusInternalServerError)
 		return
@@ -163,7 +167,7 @@ func (h *Handler) PostFlatCreate(w http.ResponseWriter, r *http.Request) {
 		Id:      gen.FlatId(flat.ID),
 		Price:   gen.Price(flat.Price),
 		Rooms:   gen.Rooms(flat.Rooms),
-		Status:  gen.Status(flat.Status.String()),
+		Status:  gen.Status(flat.Status),
 	})
 
 }
@@ -199,9 +203,14 @@ func (h *Handler) PostFlatUpdate(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var s models.Status
+	err := validateFlatUpdate(gen.PostFlatUpdateJSONBody(f))
+	if err != nil {
+		log.Warn("incorrect json", slog.String("err", err.Error()))
+		w.WriteHeader(http.StatusBadRequest)
+		return
+	}
 
-	flat, err := h.FlatService.FlatUpdate(context.Background(), f.Id, s.Status(string(*f.Status)))
+	flat, err := h.FlatService.FlatUpdate(context.Background(), f.Id, models.Status(*f.Status))
 	if err != nil {
 		render.Status(r, http.StatusInternalServerError)
 		respError(w, r, "что-то пошло не так", http.StatusInternalServerError)
@@ -215,7 +224,7 @@ func (h *Handler) PostFlatUpdate(w http.ResponseWriter, r *http.Request) {
 		Id:      gen.FlatId(flat.ID),
 		Price:   gen.Price(flat.Price),
 		Rooms:   gen.Rooms(flat.Rooms),
-		Status:  gen.Status(flat.Status.String()),
+		Status:  gen.Status(flat.Status),
 	})
 
 }
@@ -411,6 +420,18 @@ func validateLogin(user gen.PostLoginJSONBody) error {
 	rules := map[string]string{
 		"Id":       "uuid",
 		"Password": "min=6",
+	}
+
+	validate.RegisterStructValidationMapRules(rules, gen.PostRegisterJSONBody{})
+	err := validate.Struct(user)
+
+	return err
+}
+
+func validateFlatUpdate(user gen.PostFlatUpdateJSONBody) error {
+	rules := map[string]string{
+		"Id":     "uuid",
+		"Status": "eq=approved|eq=created|eq=declined|eq=on moderation",
 	}
 
 	validate.RegisterStructValidationMapRules(rules, gen.PostRegisterJSONBody{})

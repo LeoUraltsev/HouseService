@@ -1,12 +1,12 @@
 package models
 
-type Status int
+type Status string
 
 const (
-	Created Status = iota
-	Approved
-	Declined
-	OnModeration
+	Created      Status = "created"
+	Approved     Status = "approved"
+	Declined     Status = "declined"
+	OnModeration Status = "on moderation"
 )
 
 type Flat struct {
@@ -15,23 +15,4 @@ type Flat struct {
 	Price   uint
 	Rooms   uint
 	Status  Status
-}
-
-var status = map[Status]string{
-	Created:      "created",
-	Approved:     "approved",
-	Declined:     "declined",
-	OnModeration: "on moderation",
-}
-
-func (s Status) String() string {
-	return status[s]
-}
-
-func (s Status) Status(value string) Status {
-	reverseMap := make(map[string]Status)
-	for key, val := range status {
-		reverseMap[val] = key
-	}
-	return reverseMap[value]
 }
