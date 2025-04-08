@@ -10,8 +10,11 @@ import (
 	"github.com/LeoUraltsev/HouseService/internal/models"
 	"github.com/go-chi/chi/v5/middleware"
 	"github.com/go-chi/render"
+	"github.com/go-playground/validator/v10"
 	"github.com/google/uuid"
 )
+
+var validate = validator.New()
 
 type HouseService interface {
 	HouseCreate(ctx context.Context, house models.House) (*models.House, error)
@@ -244,26 +247,9 @@ func (h *Handler) PostHouseCreate(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	//базовая валидация
-	address := string(req.Address)
-	year := int(req.Year)
-
-	if address == "" {
-		err := gen.RequiredParamError{
-			ParamName: "address",
-		}
-
-		log.Warn("params empty", slog.String("err", err.Error()))
-		w.WriteHeader(http.StatusBadRequest)
-		return
-	}
-
-	if year == 0 {
-		err := gen.RequiredParamError{
-			ParamName: "year",
-		}
-
-		log.Warn("params empty", slog.String("err", err.Error()))
+	err := validateHouse(gen.PostHouseCreateJSONBody(req))
+	if err != nil {
+		log.Warn("validation params", slog.String("err", err.Error()))
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
@@ -316,8 +302,9 @@ func (h *Handler) PostLogin(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if req.Id == nil || req.Password == nil {
-		log.Warn("requered filds is empty")
+	err := validateLogin(gen.PostLoginJSONBody(req))
+	if err != nil {
+		log.Warn("failed validate", slog.String("err", err.Error()))
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
@@ -361,6 +348,13 @@ func (h *Handler) PostRegister(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	err := validateRegister(gen.PostRegisterJSONBody(req))
+	if err != nil {
+		log.Warn("validate failed", slog.String("err", err.Error()))
+		w.WriteHeader(http.StatusBadRequest)
+		return
+	}
+
 	id, err := h.AuthService.Register(context.Background(), models.User{
 		Email:        string(*req.Email),
 		PasswordHash: *req.Password,
@@ -385,4 +379,42 @@ func respError(w http.ResponseWriter, r *http.Request, msg string, statusCode in
 		Message:   msg,
 		RequestId: &requestID,
 	})
+}
+
+func validateHouse(house gen.PostHouseCreateJSONBody) error {
+
+	rules := map[string]string{
+		"Address": "min=10",
+		"Year":    "min=1900",
+	}
+
+	validate.RegisterStructValidationMapRules(rules, gen.PostHouseCreateJSONBody{})
+	err := validate.Struct(house)
+	return err
+}
+
+func validateRegister(user gen.PostRegisterJSONBody) error {
+
+	rules := map[string]string{
+		"Email":    "required,email",
+		"UserType": "eq=client|eq=moderator",
+		"Password": "min=6",
+	}
+
+	validate.RegisterStructValidationMapRules(rules, gen.PostRegisterJSONBody{})
+	err := validate.Struct(user)
+
+	return err
+}
+
+func validateLogin(user gen.PostLoginJSONBody) error {
+	rules := map[string]string{
+		"Id":       "uuid",
+		"Password": "min=6",
+	}
+
+	validate.RegisterStructValidationMapRules(rules, gen.PostRegisterJSONBody{})
+	err := validate.Struct(user)
+
+	return err
 }
