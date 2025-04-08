@@ -33,8 +33,8 @@ func (p *Storage) InsertHouse(ctx context.Context, house models.House) (*models.
 
 	query, args, err := psql.
 		Insert("house").
-		Columns("address", "year", "developer", "created_at").
-		Values(house.Address, house.Year, house.Developer, time.Now().UTC()).
+		Columns("address", "year", "developer", "created_at", "last_flat_add_at").
+		Values(house.Address, house.Year, house.Developer, time.Now().UTC(), time.Now().UTC()).
 		Suffix(`RETURNING *`).
 		PlaceholderFormat(sq.Dollar).
 		ToSql()

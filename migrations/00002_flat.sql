@@ -1,7 +1,7 @@
 -- +goose Up
 -- +goose StatementBegin
 create table if not exists flat (
-	id SERIAL primary key not null,
+	id BIGINT GENERATED ALWAYS AS IDENTITY,
 	house_id BIGINT not null,
 	price BIGINT not null,
 	rooms SMALLINT not null,
@@ -12,5 +12,5 @@ create table if not exists flat (
 
 -- +goose Down
 -- +goose StatementBegin
-drop table if exist flat;
+drop table if exists flat;
 -- +goose StatementEnd

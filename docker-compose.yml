@@ -1,10 +1,24 @@
 services:
+  houseservice:
+    image: house-service:local
+    container_name: hs-app
+    ports:
+      - '10000:10000'
+    depends_on:
+      - postgresql
+    networks:
+      - ps
   postgresql:
     image: postgres:latest
-    container_name: postgres-hause-services
+    container_name: ps-psql
     ports:
       - '5432:5432'
     env_file:
       - '.env'
     volumes:
       - ./data:/var/lib/postgresql/data
+    networks:
+      - ps
+
+networks:
+  ps:
