@@ -1,6 +1,9 @@
 package models
 
-import "time"
+import (
+	"errors"
+	"time"
+)
 
 /*
 уникальный номер дома
@@ -10,6 +13,11 @@ import "time"
 дата создания дома в базе
 дата последнего добавления новой квартиры дома
 */
+
+var (
+	ErrHouseNotFound = errors.New("house not found")
+)
+
 type House struct {
 	UID           int
 	Address       string

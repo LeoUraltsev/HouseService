@@ -2,6 +2,8 @@ package postgres
 
 import (
 	"context"
+	"database/sql"
+	"errors"
 	"log/slog"
 	"time"
 
@@ -83,7 +85,12 @@ func (s *Storage) UpdateStatusFlat(ctx context.Context, flatID int, newStatus mo
 	}
 	log.Debug("generate sql", slog.String("query", query))
 
-	if err := s.Pool.QueryRow(ctx, query, args...).Scan(&f.ID, &f.HouseID, &f.Price, &f.Rooms, &f.Status); err != nil {
+	err = s.Pool.QueryRow(ctx, query, args...).Scan(&f.ID, &f.HouseID, &f.Price, &f.Rooms, &f.Status)
+	if errors.Is(err, sql.ErrNoRows) {
+		log.Warn("flat not found")
+		return nil, models.ErrFlatNotFound
+	}
+	if err != nil {
 		log.Error("failed change status", slog.String("err", err.Error()))
 
 		return nil, err

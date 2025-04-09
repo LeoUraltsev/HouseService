@@ -2,6 +2,8 @@ package postgres
 
 import (
 	"context"
+	"database/sql"
+	"errors"
 	"fmt"
 	"log/slog"
 	"time"
@@ -44,7 +46,7 @@ func (p *Storage) InsertHouse(ctx context.Context, house models.House) (*models.
 		return nil, err
 	}
 
-	log.Debug(query)
+	log.Debug("creating query", slog.String("query", query))
 
 	err = p.Pool.QueryRow(ctx, query, args...).Scan(&h.UID, &h.Address, &h.Year, &h.Developer, &h.CreatedAt, &h.LastFlatAddAt)
 	if err != nil {
@@ -76,7 +78,15 @@ func (p *Storage) SelectHouseByID(ctx context.Context, id int) (*models.House, e
 		log.Error("failed create sql query", slog.String("err", err.Error()))
 		return nil, fmt.Errorf("failed getting house: %v", err)
 	}
-	if err := p.Pool.QueryRow(ctx, query, id).Scan(&h.UID, &h.Address, &h.Year, &h.Developer, &h.CreatedAt, &h.LastFlatAddAt); err != nil {
+
+	log.Debug("generate query", slog.String("query", query))
+
+	err = p.Pool.QueryRow(ctx, query, id).Scan(&h.UID, &h.Address, &h.Year, &h.Developer, &h.CreatedAt, &h.LastFlatAddAt)
+	if errors.Is(err, sql.ErrNoRows) {
+		log.Warn("house not found")
+		return nil, models.ErrHouseNotFound
+	}
+	if err != nil {
 		log.Error("failed getting house by id", slog.Int("id", id), slog.String("err", err.Error()))
 		return nil, fmt.Errorf("failed getting house: %v", err)
 	}
