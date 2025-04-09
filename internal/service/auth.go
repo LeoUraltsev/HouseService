@@ -2,7 +2,7 @@ package service
 
 import (
 	"context"
-	"fmt"
+	"errors"
 	"log/slog"
 	"strings"
 
@@ -53,8 +53,12 @@ func (s *AuthService) Login(ctx context.Context, user models.User) (string, erro
 	log.Info("attempting login")
 
 	u, err := s.AuthRepo.SelectUserByID(ctx, user.ID)
+	if errors.Is(err, models.ErrUserNotFound) {
+		log.Error("user not found")
+		return "", err
+	}
 	if err != nil {
-		log.Error("getting user by id")
+		log.Error("failed getting user by id", slog.String("err", err.Error()))
 		return "", err
 	}
 
@@ -62,7 +66,7 @@ func (s *AuthService) Login(ctx context.Context, user models.User) (string, erro
 
 	if !(strings.EqualFold(u.ID.String(), user.ID.String()) && equalPasswordAndPasswordHash(user.PasswordHash, u.PasswordHash)) {
 		log.Warn("invalid credentials")
-		return "", fmt.Errorf("invalid credentials")
+		return "", models.ErrInvalideCredentials
 	}
 
 	log.Info("success login", slog.String("user_type", string(u.UserType)))
@@ -76,19 +80,40 @@ func (s *AuthService) Login(ctx context.Context, user models.User) (string, erro
 
 	return token, nil
 }
+
 func (s *AuthService) Register(ctx context.Context, user models.User) (*uuid.UUID, error) {
+	const op = "service.Register"
+
+	log := s.log.With(
+		slog.String("op", op),
+		slog.String("user_email", user.Email),
+	)
+
 	hp, err := generatePasswordHash(user.PasswordHash)
-	uuid := generateUUID()
 	if err != nil {
+		log.Error(
+			"failed generate password hash",
+			slog.String("err", err.Error()),
+		)
 		return nil, err
 	}
+
+	uuid := generateUUID()
+
 	u := models.User{
 		ID:           uuid,
 		Email:        user.Email,
 		PasswordHash: hp,
 		UserType:     user.UserType,
 	}
-	if err := s.AuthRepo.InsertUser(ctx, u); err != nil {
+
+	err = s.AuthRepo.InsertUser(ctx, u)
+	if errors.Is(err, models.ErrUserAlreadyExists) {
+		log.Warn("user already exists")
+		return nil, err
+	}
+	if err != nil {
+		log.Error("failed registration user", slog.String("err", err.Error()))
 		return nil, err
 	}
 
