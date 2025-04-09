@@ -13,3 +13,8 @@ run: build
 .PHONY: up
 up:
 	goose up
+
+.PHONY: docker-up
+docker-up:
+	docker build -t house-service:local .
+	docker compose up

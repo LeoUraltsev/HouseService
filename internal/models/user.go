@@ -1,12 +1,21 @@
 package models
 
-import "github.com/google/uuid"
+import (
+	"errors"
+
+	"github.com/google/uuid"
+)
 
 type UserType string
 
 const (
 	Client    UserType = "client"
 	Moderator UserType = "moderator"
+)
+
+var (
+	ErrUserAlreadyExists = errors.New("user already exists")
+	ErrUserNotFound      = errors.New("user not found")
 )
 
 type User struct {

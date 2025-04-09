@@ -2,11 +2,15 @@ package postgres
 
 import (
 	"context"
+	"database/sql"
+	"errors"
 	"log/slog"
 
 	"github.com/LeoUraltsev/HouseService/internal/models"
 	sq "github.com/Masterminds/squirrel"
 	"github.com/google/uuid"
+	"github.com/jackc/pgerrcode"
+	"github.com/jackc/pgx/v5/pgconn"
 )
 
 type User struct {
@@ -20,7 +24,11 @@ const usersTableName = "users"
 
 func (s *Storage) InsertUser(ctx context.Context, user models.User) error {
 	const op = "storage.postgers.InsertUser"
-	log := s.log.With(slog.String("op", op), slog.String("user_id", user.ID.String()))
+	log := s.log.With(
+		slog.String("op", op),
+		slog.String("user_id", user.ID.String()),
+		slog.String("user_email", user.Email),
+	)
 
 	log.Info("attempting insert user")
 
@@ -35,7 +43,13 @@ func (s *Storage) InsertUser(ctx context.Context, user models.User) error {
 		return err
 	}
 
+	var pgErr *pgconn.PgError
+
 	_, err = s.Pool.Exec(ctx, query, args...)
+	if errors.As(err, &pgErr) && pgErr.Code == pgerrcode.UniqueViolation {
+		log.Error("user already exists")
+		return models.ErrUserAlreadyExists
+	}
 	if err != nil {
 		log.Error("failed insert user", slog.String("err", err.Error()))
 		return err
@@ -48,7 +62,10 @@ func (s *Storage) InsertUser(ctx context.Context, user models.User) error {
 func (s *Storage) SelectUserByID(ctx context.Context, id uuid.UUID) (*models.User, error) {
 	const op = "storage.postgers.SelectUserByID"
 	var u User
-	log := s.log.With(slog.String("op", op), slog.String("user_id", id.String()))
+	log := s.log.With(
+		slog.String("op", op),
+		slog.String("user_id", id.String()),
+	)
 
 	log.Info("attempting getting user by id from db")
 
@@ -62,8 +79,13 @@ func (s *Storage) SelectUserByID(ctx context.Context, id uuid.UUID) (*models.Use
 		return nil, err
 	}
 
-	if err := s.Pool.QueryRow(ctx, query, args...).Scan(&u.ID, &u.Email, &u.PasswordHash, &u.Type); err != nil {
-		log.Error("received user", slog.String("err", err.Error()))
+	err = s.Pool.QueryRow(ctx, query, args...).Scan(&u.ID, &u.Email, &u.PasswordHash, &u.Type)
+	if errors.Is(err, sql.ErrNoRows) {
+		log.Warn("user not found")
+		return nil, models.ErrUserNotFound
+	}
+	if err != nil {
+		log.Error("failed getting user", slog.String("err", err.Error()))
 		return nil, err
 	}
 
