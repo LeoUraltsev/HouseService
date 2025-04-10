@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"context"
+	"errors"
 	"log/slog"
 	"net/http"
 
@@ -19,6 +20,7 @@ var validate = validator.New()
 type HouseService interface {
 	HouseCreate(ctx context.Context, house models.House) (*models.House, error)
 	HouseByID(ctx context.Context, id int) (*models.House, error)
+	FlatsInHouseByID(ctx context.Context, id int, ut models.UserType) ([]models.Flat, error)
 }
 
 type FlatService interface {
@@ -46,6 +48,10 @@ type RegResponse struct {
 
 type LoginResponse struct {
 	Token gen.Token `json:"token"`
+}
+
+type HouseFlatsResponse struct {
+	Flats []gen.Flat `json:"flats"`
 }
 
 func New(
@@ -95,9 +101,114 @@ func (h *Handler) GetDummyLogin(w http.ResponseWriter, r *http.Request, params g
 	})
 }
 
+// PostLogin implements gen.ServerInterface.
+func (h *Handler) PostLogin(w http.ResponseWriter, r *http.Request) {
+	const op = "handlers.PostLogin"
+	var req gen.PostLoginJSONRequestBody
+
+	reqID := middleware.GetReqID(r.Context())
+
+	log := h.log.With(
+		slog.String("op", op),
+		slog.String("request_id", reqID),
+	)
+
+	log.Info("attempting login")
+
+	if err := render.DecodeJSON(r.Body, &req); err != nil {
+		log.Error("decode json", slog.String("err", err.Error()))
+		w.WriteHeader(http.StatusBadRequest)
+		return
+	}
+
+	err := validateLogin(gen.PostLoginJSONBody(req))
+	if err != nil {
+		log.Warn("failed validate", slog.String("err", err.Error()))
+		w.WriteHeader(http.StatusBadRequest)
+		return
+	}
+
+	log = log.With(slog.String("user_id", req.Id.String()))
+
+	log.Debug("success decode json", slog.String("id", req.Id.String()))
+
+	token, err := h.AuthService.Login(context.Background(), models.User{
+		ID:           *req.Id,
+		PasswordHash: *req.Password,
+	})
+
+	if errors.Is(err, models.ErrUserNotFound) {
+		log.Warn("user not found")
+		w.WriteHeader(http.StatusNotFound)
+		return
+	}
+
+	if errors.Is(err, models.ErrInvalideCredentials) {
+		log.Warn("invalide credential", slog.String("err", err.Error()))
+		w.WriteHeader(http.StatusBadRequest)
+		return
+	}
+
+	if err != nil {
+		log.Error("login", slog.String("err", err.Error()))
+		respError(w, r, "что-то пошло не так", http.StatusInternalServerError)
+		return
+	}
+	log.Debug("success get token", slog.String("token", token))
+	log.Info("success login", slog.String("user_id", req.Id.String()))
+
+	render.JSON(w, r, &LoginResponse{
+		Token: token,
+	})
+}
+
+// PostRegister implements gen.ServerInterface.
+func (h *Handler) PostRegister(w http.ResponseWriter, r *http.Request) {
+	const op = "handlers.PostRegister"
+
+	reqID := middleware.GetReqID(r.Context())
+	log := h.log.With(
+		slog.String("op", op),
+		slog.String("request_id", reqID),
+	)
+
+	log.Info("attempting registration")
+
+	var req gen.PostRegisterJSONRequestBody
+
+	if err := render.DecodeJSON(r.Body, &req); err != nil {
+		log.Warn("incorect json", slog.String("err", err.Error()))
+		w.WriteHeader(http.StatusBadRequest)
+		return
+	}
+
+	err := validateRegister(gen.PostRegisterJSONBody(req))
+	if err != nil {
+		log.Warn("validate failed", slog.String("err", err.Error()))
+		w.WriteHeader(http.StatusBadRequest)
+		return
+	}
+
+	id, err := h.AuthService.Register(context.Background(), models.User{
+		Email:        string(*req.Email),
+		PasswordHash: *req.Password,
+		UserType:     models.UserType(*req.UserType),
+	})
+
+	if err != nil {
+		log.Error("internal error", slog.String("err", err.Error()))
+		respError(w, r, "что-то пошло не так", http.StatusInternalServerError)
+		return
+	}
+
+	log.Info("success registation", slog.String("user_id", id.String()))
+	render.JSON(w, r, &RegResponse{UserID: *id})
+}
+
 // GetHouseId implements gen.ServerInterface.
 func (h *Handler) GetHouseId(w http.ResponseWriter, r *http.Request, id gen.HouseId) {
 	const op = "handlers.GetHouseId"
+
 	reqID := middleware.GetReqID(r.Context())
 	log := h.log.With(
 		slog.String("op", op),
@@ -105,16 +216,88 @@ func (h *Handler) GetHouseId(w http.ResponseWriter, r *http.Request, id gen.Hous
 		slog.Int("id", id),
 	)
 
-	log.Info("attempting getting house")
+	log.Info("attempting getting flats in house")
 
-	house, err := h.HouseService.HouseByID(context.Background(), id)
+	userType := r.Context().Value(mv.UserTypeContextKey).(models.UserType)
+
+	fl, err := h.HouseService.FlatsInHouseByID(context.Background(), id, userType)
+	if errors.Is(err, models.ErrFlatNotFound) {
+		log.Warn("flats not found")
+		render.JSON(w, r, []gen.Flat{})
+	}
+
 	if err != nil {
 		log.Error("internal error", slog.String("err", err.Error()))
 		respError(w, r, "что-то пошло не так", http.StatusInternalServerError)
 		return
 	}
 
-	log.Info("success getting house")
+	log.Info("success getting flats")
+
+	flats := make([]gen.Flat, len(fl))
+	for i, v := range fl {
+		flats[i] = gen.Flat{
+			HouseId: v.HouseID,
+			Id:      v.ID,
+			Price:   gen.Price(v.Price),
+			Rooms:   gen.Rooms(v.Rooms),
+			Status:  gen.Status(v.Status),
+		}
+	}
+
+	render.JSON(w, r, HouseFlatsResponse{
+		Flats: flats,
+	})
+
+}
+
+// PostHouseCreate implements gen.ServerInterface.
+func (h *Handler) PostHouseCreate(w http.ResponseWriter, r *http.Request) {
+	const op = "handlers.PostHouseCreate"
+	var req gen.PostHouseCreateJSONRequestBody
+
+	reqID := middleware.GetReqID(r.Context())
+
+	log := h.log.With(
+		slog.String("op", op),
+		slog.String("request_id", reqID),
+	)
+
+	log.Info("attempting create house")
+
+	userType := r.Context().Value(mv.UserTypeContextKey).(models.UserType)
+	if userType != models.Moderator {
+		log.Warn("unautorized", slog.String("user_type", string(userType)))
+		w.WriteHeader(http.StatusUnauthorized)
+		return
+	}
+
+	if err := render.DecodeJSON(r.Body, &req); err != nil {
+		log.Warn("invilide json", slog.String("err", err.Error()))
+		w.WriteHeader(http.StatusBadRequest)
+		return
+	}
+
+	err := validateHouse(gen.PostHouseCreateJSONBody(req))
+	if err != nil {
+		log.Warn("validation params", slog.String("err", err.Error()))
+		w.WriteHeader(http.StatusBadRequest)
+		return
+	}
+
+	house, err := h.HouseService.HouseCreate(context.Background(), models.House{
+		Address:   req.Address,
+		Year:      uint(req.Year),
+		Developer: req.Developer,
+	})
+
+	if err != nil {
+		log.Error("internal error", slog.String("err", err.Error()))
+		respError(w, r, "что-то пошло не так", http.StatusInternalServerError)
+		return
+	}
+
+	log.Info("create hause", slog.Int("hause_id", house.UID))
 
 	render.JSON(w, r, gen.House{
 		Address:   house.Address,
@@ -124,6 +307,11 @@ func (h *Handler) GetHouseId(w http.ResponseWriter, r *http.Request, id gen.Hous
 		UpdateAt:  &house.LastFlatAddAt,
 		Year:      gen.Year(house.Year),
 	})
+}
+
+// PostHouseIdSubscribe implements gen.ServerInterface.
+func (h *Handler) PostHouseIdSubscribe(w http.ResponseWriter, r *http.Request, id gen.HouseId) {
+	panic("unimplemented")
 }
 
 // PostFlatCreate implements gen.ServerInterface.
@@ -227,157 +415,6 @@ func (h *Handler) PostFlatUpdate(w http.ResponseWriter, r *http.Request) {
 		Status:  gen.Status(flat.Status),
 	})
 
-}
-
-// PostHouseCreate implements gen.ServerInterface.
-func (h *Handler) PostHouseCreate(w http.ResponseWriter, r *http.Request) {
-	const op = "handlers.PostHouseCreate"
-	var req gen.PostHouseCreateJSONRequestBody
-
-	reqID := middleware.GetReqID(r.Context())
-
-	log := h.log.With(
-		slog.String("op", op),
-		slog.String("request_id", reqID),
-	)
-
-	log.Info("attempting create house")
-
-	userType := r.Context().Value(mv.UserTypeContextKey).(models.UserType)
-	if userType != models.Moderator {
-		log.Warn("unautorized", slog.String("user_type", string(userType)))
-		w.WriteHeader(http.StatusUnauthorized)
-		return
-	}
-
-	if err := render.DecodeJSON(r.Body, &req); err != nil {
-		log.Warn("invilide json", slog.String("err", err.Error()))
-		w.WriteHeader(http.StatusBadRequest)
-		return
-	}
-
-	err := validateHouse(gen.PostHouseCreateJSONBody(req))
-	if err != nil {
-		log.Warn("validation params", slog.String("err", err.Error()))
-		w.WriteHeader(http.StatusBadRequest)
-		return
-	}
-
-	house, err := h.HouseService.HouseCreate(context.Background(), models.House{
-		Address:   req.Address,
-		Year:      uint(req.Year),
-		Developer: req.Developer,
-	})
-
-	if err != nil {
-		log.Error("internal error", slog.String("err", err.Error()))
-		respError(w, r, "что-то пошло не так", http.StatusInternalServerError)
-		return
-	}
-
-	log.Info("create hause", slog.Int("hause_id", house.UID))
-
-	render.JSON(w, r, gen.House{
-		Address:   house.Address,
-		CreatedAt: &house.CreatedAt,
-		Developer: house.Developer,
-		Id:        house.UID,
-		UpdateAt:  &house.LastFlatAddAt,
-		Year:      gen.Year(house.Year),
-	})
-}
-
-// PostHouseIdSubscribe implements gen.ServerInterface.
-func (h *Handler) PostHouseIdSubscribe(w http.ResponseWriter, r *http.Request, id gen.HouseId) {
-	panic("unimplemented")
-}
-
-// PostLogin implements gen.ServerInterface.
-func (h *Handler) PostLogin(w http.ResponseWriter, r *http.Request) {
-	const op = "handlers.PostLogin"
-	var req gen.PostLoginJSONRequestBody
-
-	reqID := middleware.GetReqID(r.Context())
-	log := h.log.With(
-		slog.String("op", op),
-		slog.String("request_id", reqID),
-	)
-
-	log.Info("attempting login")
-
-	if err := render.DecodeJSON(r.Body, &req); err != nil {
-		log.Error("decode json", slog.String("err", err.Error()))
-		w.WriteHeader(http.StatusBadRequest)
-		return
-	}
-
-	err := validateLogin(gen.PostLoginJSONBody(req))
-	if err != nil {
-		log.Warn("failed validate", slog.String("err", err.Error()))
-		w.WriteHeader(http.StatusBadRequest)
-		return
-	}
-
-	log.Debug("success decode json", slog.String("id", req.Id.String()))
-
-	token, err := h.AuthService.Login(context.Background(), models.User{
-		ID:           *req.Id,
-		PasswordHash: *req.Password,
-	})
-	if err != nil {
-		log.Error("login", slog.String("err", err.Error()))
-		respError(w, r, "что-то пошло не так", http.StatusInternalServerError)
-		return
-	}
-	log.Debug("success get token", slog.String("token", token))
-	log.Info("success login", slog.String("user_id", req.Id.String()))
-
-	render.JSON(w, r, &LoginResponse{
-		Token: token,
-	})
-}
-
-// PostRegister implements gen.ServerInterface.
-func (h *Handler) PostRegister(w http.ResponseWriter, r *http.Request) {
-	const op = "handlers.PostRegister"
-
-	reqID := middleware.GetReqID(r.Context())
-	log := h.log.With(
-		slog.String("op", op),
-		slog.String("request_id", reqID),
-	)
-
-	log.Info("attempting registration")
-
-	var req gen.PostRegisterJSONRequestBody
-
-	if err := render.DecodeJSON(r.Body, &req); err != nil {
-		log.Warn("incorect json", slog.String("err", err.Error()))
-		w.WriteHeader(http.StatusBadRequest)
-		return
-	}
-
-	err := validateRegister(gen.PostRegisterJSONBody(req))
-	if err != nil {
-		log.Warn("validate failed", slog.String("err", err.Error()))
-		w.WriteHeader(http.StatusBadRequest)
-		return
-	}
-
-	id, err := h.AuthService.Register(context.Background(), models.User{
-		Email:        string(*req.Email),
-		PasswordHash: *req.Password,
-		UserType:     models.UserType(*req.UserType),
-	})
-
-	if err != nil {
-		log.Error("internal error", slog.String("err", err.Error()))
-		respError(w, r, "что-то пошло не так", http.StatusInternalServerError)
-		return
-	}
-
-	log.Info("success registation", slog.String("user_id", id.String()))
-	render.JSON(w, r, &RegResponse{UserID: *id})
 }
 
 func respError(w http.ResponseWriter, r *http.Request, msg string, statusCode int) {

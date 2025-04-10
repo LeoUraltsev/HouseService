@@ -102,3 +102,38 @@ func (p *Storage) SelectHouseByID(ctx context.Context, id int) (*models.House, e
 		LastFlatAddAt: h.LastFlatAddAt.Time,
 	}, nil
 }
+
+func (p *Storage) SelectFlatsInHouseByID(ctx context.Context, id int) ([]models.Flat, error) {
+	const op = "storage.postgres.SelectHouseByID"
+
+	log := p.log.With(slog.String("op", op))
+	log.Debug("attempting getting flats in house", slog.Int("house_id", id))
+
+	var fs []models.Flat
+	var f models.Flat
+	query := `SELECT (id, house_id, price, rooms, status) FROM flat WHERE house_id = $1`
+
+	log.Debug("generate query", slog.String("query", query))
+
+	rows, err := p.Pool.Query(ctx, query, id)
+	for rows.Next() {
+		if err := rows.Scan(&f); err != nil {
+			log.Error("failed getting flats in house by id", slog.Int("id", id), slog.String("err", err.Error()))
+			return nil, err
+		}
+		fs = append(fs, f)
+	}
+
+	if errors.Is(err, sql.ErrNoRows) {
+		log.Warn("flats not found")
+		return nil, models.ErrHouseNotFound
+	}
+	if err != nil {
+		log.Error("failed getting flats in house by id", slog.Int("id", id), slog.String("err", err.Error()))
+		return nil, fmt.Errorf("failed getting flats: %v", err)
+	}
+
+	log.Info("success getting flats in house", slog.Int("id", id))
+
+	return fs, nil
+}
