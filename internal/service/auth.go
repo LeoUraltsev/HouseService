@@ -34,7 +34,8 @@ func NewAuthService(authRepo AuthRepo, jwt *jwt.JWT, log *slog.Logger) *AuthServ
 }
 
 func (s *AuthService) DummyLogin(ctx context.Context, userType models.UserType) (string, error) {
-	token, err := s.jwt.NewToken(userType)
+	uid := generateUUID()
+	token, err := s.jwt.NewToken(uid, userType)
 	if err != nil {
 		return "", err
 	}
@@ -71,7 +72,7 @@ func (s *AuthService) Login(ctx context.Context, user models.User) (string, erro
 
 	log.Info("success login", slog.String("user_type", string(u.UserType)))
 	log.Info("attempting create token", slog.String("user_type", string(u.UserType)))
-	token, err := s.jwt.NewToken(u.UserType)
+	token, err := s.jwt.NewToken(u.ID, u.UserType)
 	if err != nil {
 		log.Error("create token", slog.String("err", err.Error()), slog.String("user_type", string(u.UserType)))
 		return "", err

@@ -6,6 +6,7 @@ import (
 
 	"github.com/LeoUraltsev/HouseService/internal/models"
 	"github.com/golang-jwt/jwt/v5"
+	"github.com/google/uuid"
 )
 
 type JWT struct {
@@ -14,6 +15,7 @@ type JWT struct {
 }
 
 type CustomClaims struct {
+	UserID   uuid.UUID
 	UserType models.UserType `json:"user_type"`
 	jwt.RegisteredClaims
 }
@@ -25,8 +27,9 @@ func New(duration time.Duration, secret []byte) *JWT {
 	}
 }
 
-func (j *JWT) NewToken(ut models.UserType) (string, error) {
+func (j *JWT) NewToken(uid uuid.UUID, ut models.UserType) (string, error) {
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, CustomClaims{
+		UserID:   uid,
 		UserType: ut,
 		RegisteredClaims: jwt.RegisteredClaims{
 			ExpiresAt: &jwt.NumericDate{
