@@ -11,7 +11,11 @@ import (
 
 type Key string
 
-const UserTypeContextKey Key = "user_type"
+const (
+	UserTypeContextKey Key = "user_type"
+	UserIDContextKey       = "user_id"
+)
+
 const Bearer = "Bearer"
 const AuthHeader = "Authorization"
 
@@ -42,8 +46,10 @@ func (m *Middleware) AuthMW(next http.Handler) http.Handler {
 		}
 
 		userType := claims.UserType
+		userID := claims.UserID
 
 		ctx = context.WithValue(ctx, UserTypeContextKey, userType)
+		ctx = context.WithValue(ctx, UserIDContextKey, userID)
 
 		r = r.WithContext(ctx)
 		next.ServeHTTP(w, r)

@@ -25,7 +25,7 @@ type HouseService interface {
 
 type FlatService interface {
 	FlatCreate(ctx context.Context, flat models.Flat) (*models.Flat, error)
-	FlatUpdate(ctx context.Context, flatId int, newStatus models.Status) (*models.Flat, error)
+	FlatUpdate(ctx context.Context, flatId int, moderatorID uuid.UUID, newStatus models.Status) (*models.Flat, error)
 }
 
 type AuthService interface {
@@ -379,6 +379,12 @@ func (h *Handler) PostFlatUpdate(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	userID, ok := r.Context().Value(mv.UserIDContextKey).(uuid.UUID)
+	if !ok {
+		w.WriteHeader(http.StatusUnauthorized)
+		return
+	}
+
 	if userType != models.Moderator {
 		w.WriteHeader(http.StatusUnauthorized)
 		return
@@ -398,7 +404,7 @@ func (h *Handler) PostFlatUpdate(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	flat, err := h.FlatService.FlatUpdate(context.Background(), f.Id, models.Status(*f.Status))
+	flat, err := h.FlatService.FlatUpdate(context.Background(), f.Id, userID, models.Status(*f.Status))
 	if err != nil {
 		render.Status(r, http.StatusInternalServerError)
 		respError(w, r, "что-то пошло не так", http.StatusInternalServerError)
