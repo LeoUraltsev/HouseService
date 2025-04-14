@@ -15,7 +15,7 @@ type JWT struct {
 }
 
 type CustomClaims struct {
-	UserID   uuid.UUID
+	UserID   uuid.UUID       `json:"user_id"`
 	UserType models.UserType `json:"user_type"`
 	jwt.RegisteredClaims
 }

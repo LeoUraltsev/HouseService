@@ -28,7 +28,7 @@ func Run(log *slog.Logger, cfg *config.Config) error {
 
 	authService := service.NewAuthService(db, j, log)
 	houseService := service.NewHouseService(db, j, log)
-	flatService := service.NewFlatService(db, log)
+	flatService := service.NewFlatService(db, db, db, log)
 
 	authMV := mv.Middleware{
 		JWT: j,

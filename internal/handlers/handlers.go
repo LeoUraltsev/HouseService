@@ -375,12 +375,14 @@ func (h *Handler) PostFlatUpdate(w http.ResponseWriter, r *http.Request) {
 
 	userType, ok := r.Context().Value(mv.UserTypeContextKey).(models.UserType)
 	if !ok {
+		log.Error("failed get user type")
 		w.WriteHeader(http.StatusUnauthorized)
 		return
 	}
 
 	userID, ok := r.Context().Value(mv.UserIDContextKey).(uuid.UUID)
 	if !ok {
+		log.Error("failed get user id")
 		w.WriteHeader(http.StatusUnauthorized)
 		return
 	}
@@ -392,7 +394,10 @@ func (h *Handler) PostFlatUpdate(w http.ResponseWriter, r *http.Request) {
 
 	var f gen.PostFlatUpdateJSONRequestBody
 	if err := render.DecodeJSON(r.Body, &f); err != nil {
-		log.Warn("incorrect json body", slog.String("err", err.Error()))
+		log.Warn(
+			"incorrect json body",
+			slog.String("err", err.Error()),
+		)
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
@@ -404,8 +409,14 @@ func (h *Handler) PostFlatUpdate(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	flat, err := h.FlatService.FlatUpdate(context.Background(), f.Id, userID, models.Status(*f.Status))
+	flat, err := h.FlatService.FlatUpdate(
+		context.Background(),
+		f.Id,
+		userID,
+		models.Status(*f.Status),
+	)
 	if err != nil {
+		log.Error("failed update", slog.String("err", err.Error()))
 		render.Status(r, http.StatusInternalServerError)
 		respError(w, r, "что-то пошло не так", http.StatusInternalServerError)
 		return

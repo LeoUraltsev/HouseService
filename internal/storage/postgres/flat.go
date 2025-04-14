@@ -100,6 +100,17 @@ func (s *Storage) UpdateStatusFlat(ctx context.Context, flatID int, newStatus mo
 	return ConvertFromPGFlat(&f), nil
 }
 
+func (s *Storage) SelectFlatByID(ctx context.Context, flatID int) (*models.Flat, error) {
+	var flat models.Flat
+	q := `select (id, house_id, price, rooms, status) from flat where id = $1`
+
+	err := s.Pool.QueryRow(ctx, q, flatID).Scan(&flat)
+	if err != nil {
+		return nil, err
+	}
+	return &flat, nil
+}
+
 func ConvertToPGFlat(flat *models.Flat) *Flat {
 	return &Flat{
 		ID:      flat.ID,

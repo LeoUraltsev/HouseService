@@ -1,9 +1,12 @@
 -- +goose Up
 -- +goose StatementBegin
-SELECT 'up SQL query';
+create table if not exists moderation (
+    moderator_id uuid not null,
+    flat_id BIGINT unique not null
+);
 -- +goose StatementEnd
 
 -- +goose Down
 -- +goose StatementBegin
-SELECT 'down SQL query';
+drop table if exists moderation;
 -- +goose StatementEnd

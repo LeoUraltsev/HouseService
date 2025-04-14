@@ -30,10 +30,12 @@ type FlatService struct {
 	log              *slog.Logger
 }
 
-func NewFlatService(f FlatRepo, l *slog.Logger) *FlatService {
+func NewFlatService(f FlatRepo, fp FlatProviderRepo, m ModerationRepo, l *slog.Logger) *FlatService {
 	return &FlatService{
-		FlatRepo: f,
-		log:      l,
+		FlatRepo:         f,
+		FlatProviderRepo: fp,
+		ModerationRepo:   m,
+		log:              l,
 	}
 }
 
