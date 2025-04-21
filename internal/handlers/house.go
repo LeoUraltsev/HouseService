@@ -131,3 +131,15 @@ func (h *Handler) PostHouseCreate(w http.ResponseWriter, r *http.Request) {
 func (h *Handler) PostHouseIdSubscribe(w http.ResponseWriter, r *http.Request, id gen.HouseId) {
 	panic("unimplemented")
 }
+
+func validateHouse(house gen.PostHouseCreateJSONBody) error {
+
+	rules := map[string]string{
+		"Address": "min=10",
+		"Year":    "min=1900",
+	}
+
+	validate.RegisterStructValidationMapRules(rules, gen.PostHouseCreateJSONBody{})
+	err := validate.Struct(house)
+	return err
+}
