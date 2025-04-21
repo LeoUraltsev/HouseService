@@ -144,7 +144,7 @@ func validateFlatUpdate(user gen.PostFlatUpdateJSONBody) error {
 		"Status": "eq=approved|eq=created|eq=declined|eq=on moderation",
 	}
 
-	validate.RegisterStructValidationMapRules(rules, gen.PostRegisterJSONBody{})
+	validate.RegisterStructValidationMapRules(rules, gen.PostFlatUpdateJSONBody{})
 	err := validate.Struct(user)
 
 	return err
